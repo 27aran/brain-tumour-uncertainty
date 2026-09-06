@@ -1,0 +1,15 @@
+data/*
+!data/.gitkeep
+checkpoints/*
+!checkpoints/.gitkeep
+
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+.ipynb_chekpoints
+
+.DS_Store
+
+.idea/
