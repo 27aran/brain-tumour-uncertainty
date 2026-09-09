@@ -7,7 +7,7 @@ import os
 
 #Load Data
 data_path = kagglehub.dataset_download("masoudnickparvar/brain-tumor-mri-dataset")
-
+print(data_path)
 """
 Augmented training data
 """
@@ -54,10 +54,10 @@ train, val, cal = random_split(train_data_plain, [train_size, val_size, cal_size
 )
 train.dataset = train_data_aug
 
-train_data_loader = DataLoader(train, batch_size=32, num_workers=2, pin_memory=True, shuffle=True)
-val_data_loader = DataLoader(val, batch_size=32, num_workers=2, pin_memory=True, shuffle=False)
-cal_data_loader = DataLoader(cal, batch_size=32, num_workers=2, pin_memory=True, shuffle=False)
-test_data_loader = DataLoader(test_data, batch_size=32, num_workers=2, pin_memory=True, shuffle=False)
+train_data_loader = DataLoader(train, batch_size=32,pin_memory=True, shuffle=True)
+val_data_loader = DataLoader(val, batch_size=32, pin_memory=True, shuffle=False)
+cal_data_loader = DataLoader(cal, batch_size=32, pin_memory=True, shuffle=False)
+test_data_loader = DataLoader(test_data, batch_size=32, pin_memory=True, shuffle=False)
 
 print(train_data_aug.classes)
 print(len(train_data_aug))
