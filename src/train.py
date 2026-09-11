@@ -53,3 +53,5 @@ for epoch in range(num_epochs):
         avg_val_accuracy = correct / total
 
     print(f"Epochs: {epoch+1}/{num_epochs}", f"Train Loss: {avg_train_loss: .4f}", f"Val Loss: {avg_val_loss: .4f}", f"Val Acc: {avg_val_accuracy: .4f}")
+
+torch.save(model.state_dict(), "../checkpoints/resnet18_brain_tumor.pth")
