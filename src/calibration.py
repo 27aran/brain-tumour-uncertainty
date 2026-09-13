@@ -5,6 +5,8 @@ from torchmetrics import CalibrationError
 from src import data_loader
 from src.model import model
 from data_loader import cal_data_loader
+from data_loader import test_data_loader
+import numpy as np
 
 
 def collect_logits(model, data_loader, device):
@@ -28,11 +30,6 @@ def compute_ece(logits, labels ,n_bins=10):
     preds = torch.softmax(logits, dim=1)
     ece = metric(preds, labels)
     return ece.item()
-
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model = model.to(device)
-model.load_state_dict(torch.load("../checkpoints/resnet18_brain_tumor.pth", map_location=device))
-data_loader = cal_data_loader
 
 def plot_reliability_diagram(
         logits,
@@ -76,10 +73,36 @@ def fit_temperature(logits, labels):
     print(f"Optimales T: {temperature.item():.4f}")
     return temperature.item()
 
+def compute_nonconformity_scores(logits, labels):
+    probs = torch.softmax(logits, dim=1)
+    true_label_probs = probs[torch.arange(len(labels)), labels]
+    scores = 1 - true_label_probs
+    return scores
+
+def compute_quantile(scores, alpha=0.01):
+    n = len(scores)
+    q_level = np.ceil((n + 1) * (1 - alpha)) / n
+    q_hat = torch.quantile(scores, q_level)
+    return q_hat
+
+def build_prediction_sets(logits, q_hat):
+    probs = torch.softmax(logits, dim=1)
+    prediction_sets = (1 - probs) <= q_hat
+    top1 = torch.argmax(probs, dim=1)
+    for i in range(len(top1)):
+        prediction_sets[i, top1[i]] = True
+    return prediction_sets
+
+#What is needed for main method calls
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+model = model.to(device)
+model.load_state_dict(torch.load("../checkpoints/resnet18_brain_tumor.pth", map_location=device))
+data_loader_cal = cal_data_loader
+data_loader_test = test_data_loader
 
 if __name__ == "__main__":
     #Before Temperature scaling
-    all_logits, all_labels = collect_logits(model, data_loader, device)
+    all_logits, all_labels = collect_logits(model, data_loader_cal, device)
 
     ece = compute_ece(all_logits, all_labels, n_bins=10)
     print(f"ECE vor Kalibrierung: {ece: .4f}")
@@ -96,3 +119,22 @@ if __name__ == "__main__":
 
     plot_reliability_diagram(scaled_logits, all_labels, n_bins=10, title="Reliability Diagram",
                              save_path="../results/figures/calibrated_reliability.png")
+
+    #Conformative Prediction
+    scores = compute_nonconformity_scores(scaled_logits, all_labels)
+    q_hat = compute_quantile(scores, alpha=0.01)
+    #Temperature Scaling on test data
+    test_logits, test_labels = collect_logits(model, data_loader_test, device)
+    scaled_test_logits = test_logits / optimal_temperature
+    prediction_sets = build_prediction_sets(scaled_test_logits, q_hat)
+
+    #What do the predictions look like?
+    set_sizes = prediction_sets.sum(dim=1)  # wie viele Klassen pro Bild im Set
+    print(f"Durchschnittliche Set-Größe: {set_sizes.float().mean().item():.2f}")
+    print(f"Anteil Sets mit Größe 1: {(set_sizes == 1).float().mean().item():.2%}")
+    print(f"Anteil Sets mit Größe 4 (alle Klassen): {(set_sizes == 4).float().mean().item():.2%}")
+
+    # Check empiric coverage: is the true label actually in the predict set?
+    true_label_in_set = prediction_sets[torch.arange(len(test_labels)), test_labels]
+    empirical_coverage = true_label_in_set.float().mean().item()
+    print(f"Empirische Coverage: {empirical_coverage:.2%} (Ziel: 99%)")
