@@ -4,8 +4,8 @@ import matplotlib.pyplot as plt
 from torchmetrics import CalibrationError
 from src import data_loader
 from src.model import model
-from data_loader import cal_data_loader
-from data_loader import test_data_loader
+from src.data_loader import cal_data_loader
+from src.data_loader import test_data_loader
 import numpy as np
 
 
@@ -123,6 +123,7 @@ if __name__ == "__main__":
     #Conformative Prediction
     scores = compute_nonconformity_scores(scaled_logits, all_labels)
     q_hat = compute_quantile(scores, alpha=0.01)
+    print(f"Q-Hat: {q_hat}")
     #Temperature Scaling on test data
     test_logits, test_labels = collect_logits(model, data_loader_test, device)
     scaled_test_logits = test_logits / optimal_temperature
